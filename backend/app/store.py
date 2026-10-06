@@ -15,7 +15,10 @@ class Store:
         self.data = {r: {} for r in ROOTS}
         self.fb = None
         self.fb_error = None
-        d = Path(os.getenv("AERO_DATA_DIR") or Path(__file__).resolve().parents[1] / "data")
+        if os.getenv("VERCEL"):
+            d = Path("/tmp/data")
+        else:
+            d = Path(os.getenv("AERO_DATA_DIR") or Path(__file__).resolve().parents[1] / "data")
         d.mkdir(parents=True, exist_ok=True)
         self.path = d / "db.json"
         self._init_firebase()
