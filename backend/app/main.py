@@ -145,7 +145,7 @@ def copilot(b: QIn): return ai.ask(b.query)
 def reseed(): engine.init(force=True); return dict(ok=True)
 
 
-FRONT = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+FRONT = Path(__file__).resolve().parents[2] / "frontend" / "dist" / "app"
 LANDING = Path(__file__).resolve().parents[2] / "landing-page" / "dist"
 if FRONT.exists(): app.mount("/app", StaticFiles(directory=FRONT, html=True), name="app")
 if LANDING.exists(): app.mount("/", StaticFiles(directory=LANDING, html=True), name="landing")
