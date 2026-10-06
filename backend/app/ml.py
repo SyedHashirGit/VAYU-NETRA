@@ -33,7 +33,7 @@ class Models:
         rng = np.random.default_rng(seed)
         X, y, rul, X_ok = [], [], [], []
         cids = list(COMPONENTS)
-        for _ in range(5000):
+        for _ in range(500):
             cid = cids[rng.integers(len(cids))]
             d = float(rng.uniform(0, 1) if rng.random() < 0.7 else rng.uniform(0.4, 1))
             hr, prev = float(rng.uniform(0, 1.3)), int(rng.poisson(0.6))
@@ -44,9 +44,9 @@ class Models:
             if d < 0.25:
                 X_ok.append(f[:4])
         X, y, rul = np.array(X), np.array(y), np.array(rul)
-        self.iso = IsolationForest(n_estimators=150, contamination=0.02, random_state=seed).fit(np.array(X_ok))
-        self.clf = GradientBoostingClassifier(n_estimators=120, max_depth=3, random_state=seed).fit(X, y)
-        kw = dict(n_estimators=100, max_depth=3, random_state=seed)
+        self.iso = IsolationForest(n_estimators=20, contamination=0.02, random_state=seed).fit(np.array(X_ok))
+        self.clf = GradientBoostingClassifier(n_estimators=20, max_depth=3, random_state=seed).fit(X, y)
+        kw = dict(n_estimators=20, max_depth=3, random_state=seed)
         self.r_lo = GradientBoostingRegressor(loss="quantile", alpha=0.1, **kw).fit(X, rul)
         self.r_mid = GradientBoostingRegressor(loss="quantile", alpha=0.5, **kw).fit(X, rul)
         self.r_hi = GradientBoostingRegressor(loss="quantile", alpha=0.9, **kw).fit(X, rul)
