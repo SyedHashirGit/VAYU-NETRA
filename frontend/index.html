@@ -1,0 +1,122 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>VAYU-NETRA</title>
+<style>
+:root{--bg:#0b0f14;--p:#121923;--p2:#18212d;--ln:#243142;--tx:#d7e0ea;--mu:#8093a8;--ac:#4aa3df;--ok:#3fb27f;--wr:#e0a030;--rd:#e5533d}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:13px/1.45 system-ui,Segoe UI,Roboto,sans-serif}
+header{display:flex;align-items:center;gap:14px;padding:8px 16px;border-bottom:1px solid var(--ln);background:var(--p);flex-wrap:wrap}
+h1{font-size:15px;margin:0;letter-spacing:.14em}h1 small{display:block;font-size:10px;letter-spacing:.02em;color:var(--mu);font-weight:400}
+nav{display:flex;gap:2px;padding:0 12px;background:var(--p);border-bottom:1px solid var(--ln);overflow:auto}
+nav button{background:none;border:0;color:var(--mu);padding:9px 12px;cursor:pointer;border-bottom:2px solid transparent;font:inherit;transition:all 0.3s}nav button.on{color:var(--tx);border-color:var(--ac)}
+main{padding:14px 16px;max-width:1500px;margin:auto;animation:fadein 0.3s ease-in-out}@keyframes fadein{from{opacity:0.5;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}.row{display:flex;gap:12px;flex-wrap:wrap}.grow{flex:1;min-width:300px}
+.card{background:var(--p);border:1px solid var(--ln);border-radius:4px;padding:12px;margin-bottom:12px;transition:box-shadow 0.3s}.card:hover{box-shadow:0 4px 12px rgba(0,0,0,0.1)}.card h3{margin:0 0 8px;font-size:11px;letter-spacing:.1em;color:var(--mu);text-transform:uppercase}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:10px;margin-bottom:12px}.kpi{background:var(--p);border:1px solid var(--ln);padding:10px;border-radius:4px}.kpi b{font-size:22px;display:block;transition:color 0.3s}.kpi span{color:var(--mu);font-size:11px}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:5px 7px;border-bottom:1px solid var(--ln);white-space:nowrap;transition:background 0.2s}th{color:var(--mu);font-weight:500;font-size:11px}tr.c{cursor:pointer}tr.c:hover{background:var(--p2)}.sc{overflow:auto}
+.tag{display:inline-block;padding:1px 7px;border-radius:2px;font-size:10px;font-weight:600;letter-spacing:.04em;background:#25303d}.READY,.LOW,.ok{color:var(--ok)}.DEGRADED,.MEDIUM,.medium{color:var(--wr)}.CRITICAL,.HIGH,.critical,.high{color:var(--rd)}.MAINTENANCE{color:var(--ac)}
+button.b,select,input,textarea{background:var(--p2);color:var(--tx);border:1px solid var(--ln);border-radius:3px;padding:6px 10px;font:inherit;transition:all 0.2s}button.b{cursor:pointer}button.b:hover{border-color:var(--ac)}button.pri{background:#1d5f8c;border-color:#2b7db3}
+textarea{width:100%;min-height:90px}.bar{height:7px;background:#25303d;border-radius:2px;overflow:hidden;min-width:70px}.bar i{display:block;height:100%;transition:width 0.5s ease-in-out,background 0.5s}
+.best{outline:2px solid var(--ok)}.mu{color:var(--mu)}.err{color:var(--rd);padding:6px 0}.pill{border:1px solid var(--ln);border-radius:10px;padding:2px 8px;font-size:11px;color:var(--mu)}
+.chat{max-height:56vh;overflow:auto}.msg{padding:8px 10px;margin:6px 0;border-radius:4px;background:var(--p2);white-space:pre-wrap;animation:fadein 0.3s}.msg.u{background:#1b2c3d}
+.gantt{position:relative;margin-top:6px}.gl{display:flex;align-items:center;height:22px}.gl label{width:50px;color:var(--mu);font-size:11px}.gt{position:relative;flex:1;height:16px;background:#0e141c}.gb{position:absolute;top:1px;height:14px;background:#2b7db3;border-radius:2px;font-size:9px;overflow:hidden;padding-left:3px;white-space:nowrap;transition:all 0.3s}.gb.bundled{background:#3fb27f}.gb.predictive{background:#b8742a}
+svg{display:block}
+</style>
+<script type="module" src="/src/main.tsx"></script>
+</head><body>
+<div id="app-content" style="display:block;opacity:1;transition:opacity 0.5s ease-in;">
+<header><h1>VAYU-NETRA<small>Predict failures. Simulate consequences. Prescribe the optimal action.</small></h1><span style="flex:1"></span>
+<label class="mu">Live simulation <input type="checkbox" id="live"></label>
+<select id="simAc"></select><select id="simCp"></select><span class="mu">rate</span><input id="simRate" type="number" step="0.01" min="0" max="0.2" value="0.03" style="width:64px"><span class="pill" id="simInfo"></span>
+<button class="b" onclick="reseed()">Reset data</button></header>
+<nav id="nav"></nav><main id="main"></main>
+</div>
+<script>
+const API=window.API_BASE||"";const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const pct=x=>(x*100).toFixed(0)+"%";const cl=(v,hi=true)=>v>=70?(hi?"var(--ok)":"var(--rd)"):v>=40?"var(--wr)":(hi?"var(--rd)":"var(--ok)");
+async function api(p,o){try{const r=await fetch(API+p,o&&{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(o)});const j=await r.json();if(!r.ok)throw new Error(j.detail||r.statusText);return j}catch(e){throw new Error(e.message==="Failed to fetch"?"Backend unreachable":e.message)}}
+const S={view:"cmd",ac:"A17",cp:"hydraulic_pump",ai:[],plan:null,wi:null};
+const VIEWS=[["cmd","Command Center"],["twin","Digital Twin"],["wi","What-If"],["opt","Optimizer"],["res","Spares & Resources"],["alr","Alerts"],["log","Log Intelligence"],["ai","Ask VAYU-NETRA"]];
+$("#nav").innerHTML=VIEWS.map(v=>`<button data-v="${v[0]}">${v[1]}</button>`).join("");
+$("#nav").onclick=e=>{if(e.target.dataset.v)go(e.target.dataset.v)};
+function go(v,ac,cp){S.view=v;if(ac)S.ac=ac;if(cp)S.cp=cp;document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on",b.dataset.v===v));return render()}
+const tag=(t)=>`<span class="tag ${t}">${t}</span>`;const bar=(v,hi=true)=>`<div class="bar"><i style="width:${Math.max(2,Math.min(100,v))}%;background:${cl(v,hi)}"></i></div>`;
+const err=m=>`<div class="err">${esc(m)}</div>`;
+async function render(){const m=$("#main");try{m.innerHTML=await VIEWFN[S.view]();AFTER[S.view]&&AFTER[S.view]()}catch(e){m.innerHTML=err(e.message)}}
+const VIEWFN={
+async cmd(){const[k,f,a]=await Promise.all([api("/api/fleet/status"),api("/api/fleet"),api("/api/alerts")]);
+return`<div class="kpis">${[["Fleet availability",k.fleet_availability_pct+"%"],["Ready",k.ready],["Degraded",k.degraded],["Critical",k.critical],["Under maintenance",k.maintenance],["Unack. alerts",k.critical_alerts],["Active tasks",k.active_tasks],["Spare availability",k.spare_availability_pct+"%"],["Technicians free",k.technicians_free+"/"+k.technicians_total],["Bays free",k.bays_free+"/"+k.bays_total]].map(x=>`<div class="kpi"><b>${x[1]}</b><span>${x[0]}</span></div>`).join("")}</div>
+<div class="row"><div class="card grow" style="flex:3"><h3>Aircraft by fleet impact (availability = ready + degraded)</h3><div class="sc"><table><tr><th>#</th><th>ID</th><th>Model</th><th>Status</th><th>Health</th><th></th><th>Failure risk</th><th>RUL (h)</th><th>Impact</th><th>Worst component</th><th>Task</th></tr>
+${f.aircraft.map(x=>`<tr class="c" onclick="go('twin','${x.id}','${x.top_impact_component}')"><td>${x.priority_rank}</td><td><b>${x.id}</b></td><td>${esc(x.model)}</td><td>${tag(x.status)}</td><td>${x.health}%</td><td>${bar(x.health)}</td><td class="${x.risk_level}">${pct(x.failure_risk)}</td><td>${x.rul_low}-${x.rul_high}</td><td class="${x.impact_level}">${x.impact_level} ${x.impact_score}</td><td>${esc(x.top_impact_component)}</td><td class="mu">${esc(x.current_task||"")}</td></tr>`).join("")}</table></div></div>
+<div class="card grow"><h3>Open alerts</h3>${a.alerts.filter(x=>!x.acknowledged).slice(0,12).map(x=>`<div style="padding:4px 0;border-bottom:1px solid var(--ln)"><span class="${x.severity}">&#9679;</span> ${esc(x.message)}</div>`).join("")||'<span class="mu">None</span>'}</div></div>`},
+async twin(){const[h,c]=await Promise.all([api(`/api/aircraft/${S.ac}/health`),api(`/api/aircraft/${S.ac}/components?component=${S.cp}`)]);const A=h.aircraft,d=c.components[0],p=d.prediction;
+window._currentTwinData = h; window._currentTwinC = c;
+const tree=Object.entries(h.components).map(([id,x])=>`<tr class="c" onclick="go('twin','${S.ac}','${id}')" style="${id===S.cp?'background:var(--p2)':''}"><td>${id==="valve"?"&nbsp;&nbsp;&#8627; ":""}${esc(id)}</td><td>${x.health}%</td><td>${bar(x.health)}</td><td class="${x.risk_level}">${pct(x.failure_prob)}</td><td>${x.rul_low}-${x.rul_high}h</td><td>${tag(x.risk_level)}</td></tr>`).join("");
+const R=d.readings.slice(-40);
+return`<div class="row" style="flex-wrap:nowrap"><div class="card grow" style="flex:1"><h3>${A.id} ${esc(A.model)} ${tag(A.status)}</h3><div class="mu">Priority #${A.priority_rank} | impact ${A.impact_level} ${A.impact_score} | overall health ${A.health}% | operational priority ${A.op_priority}</div>
+<table style="margin-top:8px"><tr><th>Component</th><th>Health</th><th></th><th>P(fail)</th><th>RUL</th><th>Risk</th></tr>${tree}</table>
+<div style="margin-top:8px"><select id="acSel">${Array.from({length:30},(_,i)=>"A"+String(i+1).padStart(2,"0")).map(a=>`<option ${a===S.ac?"selected":""}>${a}</option>`).join("")}</select></div></div>
+<div class="card grow" style="flex:2"><div id="twin-3d"></div></div>
+<div class="card grow" style="flex:1"><h3>${esc(d.label)} detail</h3><div class="row"><div class="kpi grow"><b class="${p.risk_level}">${pct(p.failure_prob)}</b><span>failure prob ${tag(p.risk_level)}</span></div><div class="kpi grow"><b>${p.rul_low}-${p.rul_high} h</b><span>RUL</span></div><div class="kpi grow"><b>${p.health}%</b><span>health</span></div></div>
+<h3 style="margin-top:10px">Risk drivers</h3>${p.drivers.length?p.drivers.map(x=>`<div class="row" style="align-items:center;font-size:11px"><span style="width:120px">${esc(x.label)}</span><div class="bar grow"><i style="width:${Math.min(100,x.pct*2)}%;background:var(--wr)"></i></div><b>+${x.pct}%</b></div>`).join(""):'<span class="mu">No significant risk drivers.</span>'}
+<div class="row" style="margin-top:10px"><div class="grow"><div class="mu">Vibration</div><div id="sp1"></div></div><div class="grow"><div class="mu">Temperature</div><div id="sp2"></div></div></div>
+<div class="row" style="margin-top:10px"><div class="grow"><div class="mu">Pressure</div><div id="sp3"></div></div><div class="grow"><div class="mu">Health trend</div><div id="sp4"></div></div></div>
+<div class="mu" style="margin-top:8px;font-size:11px">Last inspection ${d.last_inspection_h_ago} h ago | ${d.hours_since_overhaul}/${d.overhaul_interval} h since overhaul | part ${d.part_id} | next action: <b>${esc(d.next_action)}</b></div>
+<div style="margin-top:10px"><button class="b pri" onclick="go('wi','${S.ac}','${S.cp}')">Run What-If</button> <button class="b" onclick="stepSim()">Advance degradation</button></div></div></div>`},
+async wi(){const opts=Object.keys({engine:1,hydraulic_pump:1,valve:1,avionics:1,landing_gear:1,fuel_pump:1});
+return`<div class="card"><div class="row" style="align-items:center"><select id="wiAc">${Array.from({length:30},(_,i)=>"A"+String(i+1).padStart(2,"0")).map(a=>`<option ${a===S.ac?"selected":""}>${a}</option>`).join("")}</select><select id="wiCp">${opts.map(o=>`<option ${o===S.cp?"selected":""}>${o}</option>`).join("")}</select>
+<span class="mu">Deferral hours</span><input id="wiH" value="6,12,24" style="width:100px"><button class="b pri" onclick="runWi()">Simulate</button></div></div><div id="wiOut"></div>`},
+async opt(){return`<div class="card"><button class="b pri" onclick="runOpt()">Optimize plan</button> <button class="b" onclick="applyPlan()">Apply plan (reserve spares)</button> <span class="mu">OR-Tools CP-SAT, solved on the backend.</span></div><div id="optOut">${S.plan?optHtml(S.plan):'<span class="mu">Run the optimizer to generate a schedule.</span>'}</div>`},
+async res(){const[s,t,b]=await Promise.all([api("/api/spares"),api("/api/technicians"),api("/api/bays")]);
+return`<div class="row"><div class="card grow" style="flex:2"><h3>Spare inventory</h3><div class="sc" style="max-height:70vh"><table><tr><th>Part</th><th>Component</th><th>Stock</th><th>Min</th><th>Reserved</th><th>Avail.</th><th>Exp. demand</th><th>Lead</th><th>Location</th><th>Shortage risk</th></tr>${s.spares.map(x=>`<tr><td>${x.part_id}</td><td>${x.component}</td><td>${x.stock}</td><td>${x.min_stock}</td><td>${x.reserved}</td><td>${x.available}</td><td>${x.expected_demand}</td><td>${x.lead_time_h}h</td><td>${esc(x.location)}</td><td class="${x.shortage_risk}">${x.shortage_risk}</td></tr>`).join("")}</table></div></div>
+<div class="grow"><div class="card"><h3>Technicians</h3><div class="sc"><table><tr><th>ID</th><th>Name</th><th>Skills</th><th>Free in</th><th>Assignment</th></tr>${t.technicians.map(x=>`<tr><td>${x.id}</td><td>${esc(x.name)}</td><td>${x.skills.join(", ")}</td><td class="${x.free_at?'MEDIUM':'ok'}">${x.free_at?"+"+x.free_at+"h":"free"}</td><td class="mu">${esc(x.current_assignment||"")}</td></tr>`).join("")}</table></div></div>
+<div class="card"><h3>Maintenance bays</h3><table><tr><th>ID</th><th>Name</th><th>Supports</th><th>Free in</th><th>Assignment</th></tr>${b.bays.map(x=>`<tr><td>${x.id}</td><td>${esc(x.name)}</td><td>${x.supports.join(", ")}</td><td class="${x.free_at?'MEDIUM':'ok'}">${x.free_at?"+"+x.free_at+"h":"free"}</td><td class="mu">${esc(x.current_assignment||"")}</td></tr>`).join("")}</table></div></div></div>`},
+async alr(){const a=await api("/api/alerts");return`<div class="card"><h3>Alerts (${a.alerts.filter(x=>!x.acknowledged).length} open)</h3><table><tr><th>Severity</th><th>Type</th><th>Message</th><th></th></tr>${a.alerts.map(x=>`<tr style="${x.acknowledged?'opacity:.5':''}"><td class="${x.severity}">${x.severity}</td><td>${x.type}</td><td>${esc(x.message)}</td><td>${x.acknowledged?'<span class=mu>acked '+esc(x.ack_at)+'</span>':`<button class="b" onclick="ack('${esc(x.id)}')">Acknowledge</button>`}</td></tr>`).join("")}</table></div>`},
+async log(){return`<div class="card"><h3>Maintenance note analysis</h3><textarea id="logT">Aircraft A17 reported intermittent hydraulic pressure fluctuation during post-flight inspection. Hydraulic pump was replaced twice during the previous 400 operating hours.</textarea><div style="margin-top:8px"><button class="b pri" onclick="runLog()">Extract & store</button></div><div id="logOut"></div></div>`},
+async ai(){return`<div class="card"><div class="chat" id="chat">${S.ai.map(m=>aiHtml(m)).join("")||'<span class="mu">Ask about priorities, what-if scenarios, spares or the optimized plan. Answers come from backend tools.</span>'}</div>
+<div class="row" style="margin-top:8px">${["Which aircraft should we prioritize today?","Why is A17 high priority?","What happens if we delay A17 maintenance by 12 hours?","Which spare parts are at risk of shortage?","Show me the optimized maintenance plan."].map(q=>`<button class="b" onclick="ask(this.textContent)">${q}</button>`).join("")}</div>
+<div class="row" style="margin-top:8px"><input id="q" class="grow" placeholder="Ask VAYU-NETRA..." onkeydown="if(event.key==='Enter')ask()"><button class="b pri" onclick="ask()">Ask</button></div></div>`}};
+const AFTER={twin(){
+  $("#acSel").onchange=e=>{S.ac=e.target.value;api(`/api/aircraft/${S.ac}`).then(a=>{S.cp=a.top_impact_component;render()})};
+  if(window.renderSpark && window._currentTwinC){
+    const d = window._currentTwinC.components[0];
+    const R = d.readings.slice(-40);
+    window.renderSpark("sp1", R.map(r=>r.vibration), "var(--wr)", "Vibration (g)", "Time (hrs)");
+    window.renderSpark("sp2", R.map(r=>r.temp), "var(--rd)", "Temperature (°C)", "Time (hrs)");
+    window.renderSpark("sp3", R.map(r=>r.pressure), "var(--ac)", "Pressure (PSI)", "Time (hrs)");
+    window.renderSpark("sp4", d.health_trend, "var(--ok)", "Health (%)", "Time (hrs)");
+  }
+  if(window.renderDigitalTwin && window._currentTwinData){
+    window.renderDigitalTwin("twin-3d", S.ac, S.cp, window._currentTwinData);
+  }
+},wi(){if(S.wi&&S.wi.aircraft_id===S.ac&&S.wi.component_id===S.cp)$("#wiOut").innerHTML=wiHtml(S.wi)}};
+function spark(v,c){return `<div class="mu">Loading...</div>`;}
+function wiHtml(r){const best=r.scenarios.find(s=>s.best),mx=Math.max(...r.scenarios.map(s=>s.expected_downtime_h));
+return`<div class="row"><div class="card grow"><h3>Current state: ${r.aircraft_id} ${esc(r.component)}</h3><div class="mu">P(fail 50h) ${pct(r.current.failure_prob)} | RUL ${r.current.rul_low}-${r.current.rul_high} h | health ${r.current.health}% | impact ${r.current.impact.score} | fleet availability now ${r.current.fleet_availability_now_pct}% (72 h horizon) | part ${r.part_id}</div></div></div>
+<div class="card"><h3>Scenario comparison</h3><div class="sc"><table><tr><th>Strategy</th><th>Start</th><th>Planned downtime</th><th>Failure risk before start</th><th>Expected downtime</th><th></th><th>Fleet availability</th><th>Spare</th><th>Workload</th></tr>
+${r.scenarios.map(s=>`<tr class="${s.best?'best':''}"><td><b>${esc(s.name)}</b> ${s.best?'<span class="tag ok">RECOMMENDED</span>':""}<div class="mu">${esc(s.note)}</div></td><td>+${s.start_h}h</td><td>${s.planned_downtime_h}h</td><td class="${s.failure_risk>.3?'HIGH':s.failure_risk>.15?'MEDIUM':'LOW'}">${pct(s.failure_risk)}</td><td>${s.expected_downtime_h}h</td><td style="width:120px">${bar(s.expected_downtime_h/mx*100,false)}</td><td>${s.fleet_availability_pct}%</td><td>${esc(s.spare)}</td><td>${s.workload_tech_h} tech-h</td></tr>`).join("")}</table></div></div>
+<div class="card"><h3>Why ${esc(best.name)}?</h3><ul>${r.why.map(w=>`<li>${esc(w)}</li>`).join("")}</ul><button class="b pri" onclick="runOpt()">Optimize plan</button></div>`}
+function optHtml(p){const mxe=Math.max(...p.schedule.map(r=>r.end),1),techs=[...new Set(p.schedule.map(r=>r.technician))].sort();
+const ticks = Array.from({length:Math.ceil(mxe/12)+1}).map((_,i)=>i*12);
+const axis = `<div style="display:flex;margin-left:50px;margin-bottom:4px;border-bottom:1px solid var(--ln);color:var(--mu);font-size:10px;position:relative;height:16px">${ticks.map(t=>`<div style="position:absolute;left:${t/mxe*100}%">+${t}h</div>`).join("")}</div>`;
+const grid = ticks.map(t=>`<div style="position:absolute;left:${t/mxe*100}%;width:1px;height:100%;background:rgba(255,255,255,0.05);z-index:0;pointer-events:none"></div>`).join("");
+return`<div class="kpis"><div class="kpi"><b>${p.before.projected_availability_pct}%</b><span>BEFORE projected availability (${esc(p.baseline_description)})</span></div><div class="kpi"><b class="ok">${p.after.projected_availability_pct}%</b><span>AFTER (${p.status})</span></div><div class="kpi"><b>${p.availability_gain_pts>0?"+":""}${p.availability_gain_pts} pts</b><span>change</span></div><div class="kpi"><b>${p.before.expected_unplanned_downtime_h}h &rarr; ${p.after.expected_unplanned_downtime_h}h</b><span>expected unplanned downtime</span></div><div class="kpi"><b>${p.before.avg_risk_before_start_pct}% &rarr; ${p.after.avg_risk_before_start_pct}%</b><span>avg failure risk before start</span></div></div>
+${p.applied?'<div class="card ok">Plan applied: spares reserved and assignments written to the database.</div>':""}
+<div class="card"><h3>Schedule (hours from now)</h3><div class="sc"><table><tr><th>#</th><th>Aircraft</th><th>Task</th><th>Technician</th><th>Bay</th><th>Start</th><th>End</th><th>Spare</th><th>Priority</th><th>Risk before start</th><th>Why this slot</th></tr>${p.schedule.map(r=>`<tr><td>${r.seq}</td><td><b>${r.aircraft}</b></td><td>${esc(r.task)}</td><td>${r.technician} ${esc(r.technician_name)}</td><td>${r.bay}</td><td>+${r.start}h <span class="mu">${r.start_label}</span></td><td>+${r.end}h</td><td>${esc(r.spare||"-")} <span class="mu">${r.spare_status}</span></td><td>${r.priority}</td><td>${r.failure_prob?pct(r.risk_before_start):"-"}</td><td class="mu">${esc(r.reason)}</td></tr>`).join("")}</table></div>
+<div class="gantt"><div class="mu" style="font-size:10px;text-align:center;margin-bottom:8px">X-Axis: Time (hours from now) | Y-Axis: Technicians</div>${axis}${techs.map(t=>`<div class="gl"><label>${t}</label><div class="gt">${grid}${p.schedule.filter(r=>r.technician===t).map(r=>`<div class="gb ${r.kind}" title="[+${r.start}h to +${r.end}h] ${r.aircraft}: ${esc(r.task)}" style="left:${r.start/mxe*100}%;width:${(r.end-r.start)/mxe*100}%;z-index:1;box-shadow:inset 0 0 0 1px rgba(0,0,0,0.2)">${r.aircraft}</div>`).join("")}</div></div>`).join("")}<div class="mu" style="font-size:10px;margin-top:6px;margin-left:50px">Green: bundled with scheduled inspection | amber: predictive repair | blue: scheduled</div></div></div>
+<div class="card"><h3>Why the optimizer chose this schedule</h3><ul>${p.notes.map(n=>`<li>${esc(n)}</li>`).join("")}${p.unschedulable.map(u=>`<li class="HIGH">Unschedulable ${esc(u.task_id)}: ${esc(u.reason)}</li>`).join("")}</ul></div>`}
+async function runWi(){S.ac=$("#wiAc").value;S.cp=$("#wiCp").value;$("#wiOut").innerHTML='<span class="mu">Simulating...</span>';try{const hs=$("#wiH").value.split(",").map(x=>parseInt(x)).filter(x=>x>0);S.wi=await api("/api/simulate/maintenance",{aircraft_id:S.ac,component_id:S.cp,defer_hours:hs});$("#wiOut").innerHTML=wiHtml(S.wi)}catch(e){$("#wiOut").innerHTML=err(e.message)}}
+async function runOpt(){if(S.view!=="opt")await go("opt");const o=$("#optOut");o.innerHTML='<span class="mu">Solving...</span>';try{S.plan=await api("/api/maintenance/optimize",{});o.innerHTML=optHtml(S.plan)}catch(e){o.innerHTML=err(e.message)}}
+async function applyPlan(){try{await api("/api/maintenance/plan/apply",{});S.plan=await api("/api/maintenance/plan");render()}catch(e){$("#optOut").insertAdjacentHTML("afterbegin",err(e.message))}}
+async function ack(id){await api("/api/alerts/ack",{id});render()}
+async function runLog(){const o=$("#logOut");o.innerHTML='<span class="mu">Analyzing...</span>';try{const r=await api("/api/maintenance/log/analyze",{text:$("#logT").value});const p=r.prediction;o.innerHTML=`<h3 style="margin-top:12px">Validated record (engine: ${esc(r.engine)}) stored as ${esc(r.stored_as)}</h3><pre style="background:var(--bg);padding:8px;overflow:auto">${esc(JSON.stringify(r.record,null,2))}</pre><div>Updated prediction: P(fail) ${pct(p.failure_prob)}, RUL ${p.rul_low}-${p.rul_high} h, health ${p.health}% <button class="b" onclick="go('twin','${r.record.aircraft_id}','${r.record.component}')">Open in Digital Twin</button></div>`}catch(e){o.innerHTML=err(e.message)}}
+const aiHtml=m=>m.u?`<div class="msg u">${esc(m.u)}</div>`:`<div class="msg">${esc(m.a.answer)}</div>`;
+async function ask(q){q=q||$("#q").value.trim();if(!q)return;S.ai.push({u:q});const c=$("#chat");c.insertAdjacentHTML("beforeend",aiHtml({u:q})+'<div class="msg mu" id="pend">Thinking...</div>');c.scrollTop=1e9;try{const a=await api("/api/copilot/query",{query:q});S.ai.push({a});$("#pend").outerHTML=aiHtml({a})}catch(e){$("#pend").outerHTML=err(e.message)}$("#q").value="";c.scrollTop=1e9}
+async function stepSim(){try{const r=await api("/api/simulate/telemetry",{aircraft_id:$("#simAc").value,component_id:$("#simCp").value,rate:+$("#simRate").value||0.03});$("#simInfo").textContent=`${r.aircraft_id} P(fail) ${pct(r.after.failure_prob)} | RUL ${r.after.rul_low}-${r.after.rul_high}h | rank #${r.aircraft.priority_rank}`;if(["cmd","twin","alr","res"].includes(S.view))render()}catch(e){$("#simInfo").textContent=e.message;$("#live").checked=false;clearInterval(T)}}
+let T;$("#live").onchange=e=>{clearInterval(T);if(e.target.checked){stepSim();T=setInterval(stepSim,2000)}};
+async function reseed(){await api("/api/admin/reseed",{});S.plan=null;S.wi=null;render()}
+(async()=>{
+  $("#simAc").innerHTML=Array.from({length:30},(_,i)=>`<option>A${String(i+1).padStart(2,"0")}</option>`).join("");
+  $("#simAc").value="A17";
+  $("#simCp").innerHTML=["hydraulic_pump","engine","valve","avionics","landing_gear","fuel_pump"].map(c=>`<option>${c}</option>`).join("");
+  go("cmd");
+})();
+</script></body></html>
